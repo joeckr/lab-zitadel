@@ -1,26 +1,70 @@
-app:
-  name: lab-service
-  image: nginxinc/nginx-unprivileged
-  tag: alpine
-  pullPolicy: Always
+# ZITADEL configuration
+zitadel:
+  image:
+    repository: ghcr.io/zitadel/zitadel
+    tag: "v4.20.4"
+    pullPolicy: IfNotPresent
+
   replicaCount: 1
   port: 8080
-  env: "lab"
+
+  # Public hostname & external TLS settings (terminated at Cloudflare Edge / Tunnel)
+  # Update externalDomain and httpRoute.hostnames for your own homelab domain.
+  externalDomain: "zitadel.joeckr.dev"
+  externalPort: 443
+  externalSecure: true
+
+  # TLS mode for ZITADEL listener:
+  # - "external": serves cleartext HTTP/2 (h2c) internally while expecting external TLS termination
+  # - "disabled": serves cleartext HTTP/2 (h2c) for local/non-TLS setups
+  tlsMode: "external"
+
+  # 32-character masterkey used by ZITADEL to encrypt sensitive database fields.
+  # Provide existingSecret instead to manage credentials externally (e.g., SealedSecrets/ExternalSecrets).
+  masterkey: "changeme-32-character-masterkey!"  # betterleaks:allow
+  existingSecret: ""
+
+  # Optional initial instance bootstrap settings (applied only on first initialization)
+  firstInstance:
+    orgName: "ZITADEL"
+    adminUsername: "zitadel-admin"
+    # Leave empty to use ZITADEL's built-in initial password (Password1!) with forced reset
+    adminPassword: ""
+    adminPasswordChangeRequired: true
+
+  # Require standalone Login V2 UI (ghcr.io/zitadel/zitadel-login).
+  loginV2Required: true
+
+  logLevel: "info"
+
+  # Additional non-sensitive environment variables
+  extraEnv: {}
+
   resources:
-    limits:
-      cpu: 250m
+    requests:
+      cpu: 200m
       memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+
+  # Pod Security Standard (restricted) compliant defaults for ghcr.io/zitadel/zitadel (UID/GID 1000)
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    fsGroupChangePolicy: OnRootMismatch
+    seccompProfile:
+      type: RuntimeDefault
+
   securityContext:
     allowPrivilegeEscalation: false
-    readOnlyRootFilesystem: false
+    readOnlyRootFilesystem: true
     capabilities:
       drop:
         - ALL
-  podSecurityContext:
-    runAsNonRoot: true
-    seccompProfile:
-      type: RuntimeDefault
-    fsGroup: 1031
+
   tolerations:
     - key: "node-role.kubernetes.io/control-plane"
       operator: "Exists"
@@ -29,15 +73,127 @@ app:
       operator: "Exists"
       effect: "NoSchedule"
 
+  nodeSelector: {}
+  affinity: {}
+
+# Standalone Login V2 UI container (ghcr.io/zitadel/zitadel-login)
+# Authenticates to ZITADEL Core via SystemAPIUsers RSA keypair (auto-generated TLS secret unless existingKeySecret is set).
+login:
+  enabled: true
+  image:
+    repository: ghcr.io/zitadel/zitadel-login
+    tag: "v4.20.4"
+    pullPolicy: IfNotPresent
+
+  replicaCount: 1
+  port: 3000
+  basePath: "/ui/v2/login"
+
+  # SystemAPIUser ID registered with ZITADEL Core (must be lowercase)
+  systemUserId: "login-client"
+
+  # Optional pre-existing kubernetes.io/tls Secret containing tls.crt and tls.key (RSA keypair).
+  # If empty, Helm auto-generates and persists a self-signed RSA keypair Secret.
+  existingKeySecret: ""
+
+  # Secret (>= 32 chars) used by Login V2 to sign browser session cookies.
+  # When zitadel.existingSecret is set, provide ZITADEL_SESSION_COOKIE_SECRET in that Secret instead.
+  sessionCookieSecret: "changeme-32-character-cookie-sec"  # betterleaks:allow
+
+  extraEnv: {}
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1001
+    runAsGroup: 1001
+    fsGroup: 1001
+    fsGroupChangePolicy: OnRootMismatch
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+    capabilities:
+      drop:
+        - ALL
+
 service:
-  name: lab-service
   type: ClusterIP
   port: 8080
+  # Required for Traefik Gateway API to speak cleartext HTTP/2 (h2c) to ZITADEL for gRPC
+  appProtocol: "kubernetes.io/h2c"
+  loginPort: 3000
 
-ingress:
+# Traefik Kubernetes Gateway API HTTPRoute (paired with Cloudflare Tunnel -> Traefik Gateway)
+httpRoute:
   enabled: true
-  name: lab-ingress
-  host: "test.joeckr.dev" # add your own domain
-  className: "nginx"
+  annotations: {}
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: traefik-gateway
+      namespace: gateway
+      sectionName: web
+  hostnames:
+    - "zitadel.joeckr.dev"
   path: /
-  pathType: "Prefix"
+  pathType: PathPrefix
+  filters: []
+
+# Embedded rootless PostgreSQL subchart (https://github.com/joeckr/oci-postgres, v0.2.3)
+postgres:
+  enabled: true
+  postgres:
+    # Must be <= 15 characters (used as Kubernetes container port name by oci-postgres)
+    name: zitadel-pg
+    app: zitadel-pg
+    replicaCount: 1
+    image: ghcr.io/joeckr/postgres
+    tag: "18"
+    pullPolicy: IfNotPresent
+    port: 5432
+    db: zitadel
+    user: zitadel
+    password: "changeme"  # betterleaks:allow
+    storageAccessMode: ReadWriteOnce
+    storageSize: 5Gi
+    storageClass: "longhorn"
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    podSecurityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+      fsGroup: 1031
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+  initSchema:
+    enabled: false
+
+# External PostgreSQL settings (used only when postgres.enabled is false)
+externalPostgres:
+  host: ""
+  port: 5432
+  db: zitadel
+  user: zitadel
+  password: ""
+  adminUser: postgres
+  adminPassword: ""
+  sslMode: "disable"

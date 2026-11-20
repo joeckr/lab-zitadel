@@ -1,15 +1,19 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Values.service.name }}
+  name: {{ include "lab-zitadel.fullname" . }}
   labels:
-    app: {{ .Values.app.name }}
+    {{- include "lab-zitadel.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
 spec:
   type: {{ .Values.service.type }}
-  ports:
-    - port: {{ .Values.service.port }}
-      targetPort: {{ .Values.app.port }}
-      protocol: TCP
-      name: {{ .Values.service.name }}
   selector:
-    app: {{ .Values.app.name }}
+    {{- include "lab-zitadel.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      {{- if .Values.service.appProtocol }}
+      appProtocol: {{ .Values.service.appProtocol }}
+      {{- end }}

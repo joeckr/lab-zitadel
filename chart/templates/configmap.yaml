@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "lab-zitadel.fullname" . }}-config
+  labels:
+    {{- include "lab-zitadel.labels" . | nindent 4 }}
+data:
+  ZITADEL_PORT: {{ .Values.zitadel.port | quote }}
+  ZITADEL_EXTERNALDOMAIN: {{ .Values.zitadel.externalDomain | quote }}
+  ZITADEL_EXTERNALPORT: {{ .Values.zitadel.externalPort | quote }}
+  ZITADEL_EXTERNALSECURE: {{ .Values.zitadel.externalSecure | quote }}
+  ZITADEL_TLS_ENABLED: "false"
+  ZITADEL_LOG_LEVEL: {{ .Values.zitadel.logLevel | quote }}
+  ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_REQUIRED: {{ .Values.zitadel.loginV2Required | quote }}
+  ZITADEL_DATABASE_POSTGRES_HOST: {{ include "lab-zitadel.postgresHost" . | quote }}
+  ZITADEL_DATABASE_POSTGRES_PORT: {{ include "lab-zitadel.postgresPort" . | quote }}
+  ZITADEL_DATABASE_POSTGRES_DATABASE: {{ include "lab-zitadel.postgresDb" . | quote }}
+  ZITADEL_DATABASE_POSTGRES_USER_USERNAME: {{ include "lab-zitadel.postgresUser" . | quote }}
+  ZITADEL_DATABASE_POSTGRES_USER_SSL_MODE: {{ include "lab-zitadel.postgresSslMode" . | quote }}
+  ZITADEL_DATABASE_POSTGRES_ADMIN_USERNAME: {{ include "lab-zitadel.postgresAdminUser" . | quote }}
+  ZITADEL_DATABASE_POSTGRES_ADMIN_SSL_MODE: {{ include "lab-zitadel.postgresSslMode" . | quote }}
+  {{- if .Values.zitadel.firstInstance.orgName }}
+  ZITADEL_FIRSTINSTANCE_ORG_NAME: {{ .Values.zitadel.firstInstance.orgName | quote }}
+  {{- end }}
+  {{- if .Values.zitadel.firstInstance.adminUsername }}
+  ZITADEL_FIRSTINSTANCE_ORG_HUMAN_USERNAME: {{ .Values.zitadel.firstInstance.adminUsername | quote }}
+  {{- end }}
+  ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORDCHANGEREQUIRED: {{ .Values.zitadel.firstInstance.adminPasswordChangeRequired | quote }}
+  {{- range $key, $value := .Values.zitadel.extraEnv }}
+  {{ $key }}: {{ $value | quote }}
+  {{- end }}

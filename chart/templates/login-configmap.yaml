@@ -1,0 +1,17 @@
+{{- if .Values.login.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "lab-zitadel.fullname" . }}-login-config
+  labels:
+    {{- include "lab-zitadel.labels" . | nindent 4 }}
+data:
+  system-api-users.yaml: |
+    SystemAPIUsers:
+      {{ .Values.login.systemUserId }}:
+        Path: /etc/zitadel/login-service-key/tls.crt
+        Memberships:
+          - MemberType: System
+            Roles:
+              - "IAM_LOGIN_CLIENT"
+{{- end }}
