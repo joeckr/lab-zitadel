@@ -1,0 +1,114 @@
+{{- if .Values.login.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "lab-zitadel.fullname" . }}-login
+  labels:
+    {{- include "lab-zitadel.labels" . | nindent 4 }}
+    app.kubernetes.io/component: login
+spec:
+  replicas: {{ .Values.login.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "lab-zitadel.loginSelectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "lab-zitadel.labels" . | nindent 8 }}
+        {{- include "lab-zitadel.loginSelectorLabels" . | nindent 8 }}
+      {{- if not .Values.zitadel.existingSecret }}
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+      {{- end }}
+    spec:
+      automountServiceAccountToken: false
+      {{- with .Values.login.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.zitadel.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.zitadel.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.zitadel.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: login-service-key
+          secret:
+            secretName: {{ include "lab-zitadel.loginKeySecretName" . }}
+            items:
+              - key: tls.key
+                path: tls.key
+      containers:
+        - name: login
+          image: "{{ .Values.login.image.repository }}:{{ .Values.login.image.tag }}"
+          imagePullPolicy: {{ .Values.login.image.pullPolicy }}
+          {{- with .Values.login.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.login.port }}
+              protocol: TCP
+          env:
+            - name: ZITADEL_API_URL
+              value: {{ printf "http://%s:%v" (include "lab-zitadel.fullname" .) .Values.service.port | quote }}
+            - name: NEXT_PUBLIC_BASE_PATH
+              value: {{ .Values.login.basePath | quote }}
+            - name: AUDIENCE
+              value: {{ printf "%s://%s" (ternary "https" "http" .Values.zitadel.externalSecure) .Values.zitadel.externalDomain | quote }}
+            - name: SYSTEM_USER_ID
+              value: {{ .Values.login.systemUserId | quote }}
+            - name: SYSTEM_USER_PRIVATE_KEY_FILE
+              value: /etc/zitadel/login-service-key/tls.key
+            - name: ZITADEL_SESSION_COOKIE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "lab-zitadel.secretName" . }}
+                  key: ZITADEL_SESSION_COOKIE_SECRET
+            {{- range $key, $value := .Values.login.extraEnv }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: login-service-key
+              mountPath: /etc/zitadel/login-service-key
+              readOnly: true
+          startupProbe:
+            httpGet:
+              path: {{ printf "%s/healthy" (trimSuffix "/" .Values.login.basePath) }}
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: {{ printf "%s/healthy" (trimSuffix "/" .Values.login.basePath) }}
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: {{ printf "%s/ready" (trimSuffix "/" .Values.login.basePath) }}
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          {{- with .Values.login.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}

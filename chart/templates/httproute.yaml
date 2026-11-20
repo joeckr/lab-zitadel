@@ -1,0 +1,44 @@
+{{- if .Values.httpRoute.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "lab-zitadel.fullname" . }}
+  labels:
+    {{- include "lab-zitadel.labels" . | nindent 4 }}
+  {{- with .Values.httpRoute.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  parentRefs:
+    {{- toYaml .Values.httpRoute.parentRefs | nindent 4 }}
+  {{- with .Values.httpRoute.hostnames }}
+  hostnames:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    {{- if .Values.login.enabled }}
+    - matches:
+        - path:
+            type: PathPrefix
+            value: {{ .Values.login.basePath }}
+      {{- with .Values.httpRoute.filters }}
+      filters:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      backendRefs:
+        - name: {{ include "lab-zitadel.fullname" . }}-login
+          port: {{ .Values.service.loginPort }}
+    {{- end }}
+    - matches:
+        - path:
+            type: {{ .Values.httpRoute.pathType }}
+            value: {{ .Values.httpRoute.path }}
+      {{- with .Values.httpRoute.filters }}
+      filters:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      backendRefs:
+        - name: {{ include "lab-zitadel.fullname" . }}
+          port: {{ .Values.service.port }}
+{{- end }}

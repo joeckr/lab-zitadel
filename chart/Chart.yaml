@@ -1,6 +1,12 @@
 apiVersion: v2
-name: lab-service
-description: Helm chart for experimenting with new services in a lab environment
+name: lab-zitadel
+description: Helm chart for deploying ZITADEL on a hardened Talos Kubernetes cluster
 type: application
 version: 0.2.1
-appVersion: "0.2.1"
+appVersion: "v4.20.4"
+
+dependencies:
+  - name: postgres
+    version: "0.2.3"
+    repository: "oci://ghcr.io/joeckr/charts"
+    condition: postgres.enabled

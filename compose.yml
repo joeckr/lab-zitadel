@@ -1,22 +1,52 @@
 services:
-  lab-service:
-    container_name: lab-service
-    image: nginxinc/nginx-unprivileged:alpine
+  postgres:
+    container_name: zitadel-postgres
+    image: ghcr.io/joeckr/postgres:18
     restart: unless-stopped
+    environment:
+      POSTGRES_DB: zitadel
+      POSTGRES_USER: zitadel
+      POSTGRES_PASSWORD: changeme  # betterleaks:allow
+    volumes:
+      - postgres-data:/tmp
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zitadel -d zitadel"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  zitadel:
+    container_name: zitadel
+    image: ghcr.io/zitadel/zitadel:v4.20.4
+    restart: unless-stopped
+    command:
+      - start-from-init
+      - --masterkeyFromEnv
+      - --tlsMode
+      - disabled
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "8080:8080"
     environment:
-      - ENV=lab
-      - LOG_LEVEL=debug
-    volumes:
-      - lab-data:/tmp/data
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/ || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
+      ZITADEL_MASTERKEY: changeme-32-character-masterkey!  # betterleaks:allow
+      ZITADEL_EXTERNALDOMAIN: localhost
+      ZITADEL_EXTERNALPORT: "8080"
+      ZITADEL_EXTERNALSECURE: "false"
+      ZITADEL_TLS_ENABLED: "false"
+      ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_REQUIRED: "false"
+      ZITADEL_DATABASE_POSTGRES_HOST: postgres
+      ZITADEL_DATABASE_POSTGRES_PORT: "5432"
+      ZITADEL_DATABASE_POSTGRES_DATABASE: zitadel
+      ZITADEL_DATABASE_POSTGRES_USER_USERNAME: zitadel
+      ZITADEL_DATABASE_POSTGRES_USER_PASSWORD: changeme  # betterleaks:allow
+      ZITADEL_DATABASE_POSTGRES_USER_SSL_MODE: disable
+      ZITADEL_DATABASE_POSTGRES_ADMIN_USERNAME: zitadel
+      ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD: changeme  # betterleaks:allow
+      ZITADEL_DATABASE_POSTGRES_ADMIN_SSL_MODE: disable
 
 volumes:
-  lab-data:
+  postgres-data:
     driver: local

@@ -1,0 +1,21 @@
+lab-zitadel has been deployed to namespace "{{ .Release.Namespace }}".
+
+1. ZITADEL Console & API:
+{{- if .Values.httpRoute.enabled }}
+   URL: {{ if .Values.zitadel.externalSecure }}https{{ else }}http{{ end }}://{{ .Values.zitadel.externalDomain }}
+   (Ensure your Cloudflare Tunnel forwards "{{ .Values.zitadel.externalDomain }}" to your Traefik Kubernetes Gateway with HTTP/2 origin enabled.)
+{{- else }}
+   kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "lab-zitadel.fullname" . }} 8080:{{ .Values.service.port }}
+   Then open: http://localhost:8080
+{{- end }}
+
+2. Initial Admin Credentials:
+   Username: {{ .Values.zitadel.firstInstance.adminUsername }}@{{ .Values.zitadel.firstInstance.orgName | lower }}.{{ .Values.zitadel.externalDomain }}
+   Password: (the configured adminPassword, or ZITADEL's default "Password1!" on first bootstrap)
+
+3. Next Steps:
+   - Replace all placeholder secrets (32-character masterkey, session cookie secret, and PostgreSQL password) or use `zitadel.existingSecret`.
+   - Sign in to the ZITADEL Console and change the initial admin password immediately.
+{{- if .Values.login.enabled }}
+   - Login V2 is enabled and authenticated via SystemAPIUser "{{ .Values.login.systemUserId }}" using TLS secret "{{ include "lab-zitadel.loginKeySecretName" . }}".
+{{- end }}

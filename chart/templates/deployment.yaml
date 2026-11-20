@@ -1,43 +1,120 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Values.app.name }}
+  name: {{ include "lab-zitadel.fullname" . }}
   labels:
-    app: {{ .Values.app.name }}
+    {{- include "lab-zitadel.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
 spec:
-  replicas: {{ .Values.app.replicaCount }}
+  replicas: {{ .Values.zitadel.replicaCount }}
   selector:
     matchLabels:
-      app: {{ .Values.app.name }}
+      {{- include "lab-zitadel.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        app: {{ .Values.app.name }}
+        {{- include "lab-zitadel.labels" . | nindent 8 }}
+        {{- include "lab-zitadel.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- if not .Values.zitadel.existingSecret }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- end }}
+        {{- if .Values.login.enabled }}
+        checksum/login-config: {{ include (print $.Template.BasePath "/login-configmap.yaml") . | sha256sum }}
+        {{- end }}
     spec:
-      {{- with .Values.app.podSecurityContext }}
+      automountServiceAccountToken: false
+      {{- with .Values.zitadel.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.app.tolerations }}
+      {{- with .Values.zitadel.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.zitadel.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.zitadel.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      automountServiceAccountToken: false
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        {{- if .Values.login.enabled }}
+        - name: login-config
+          configMap:
+            name: {{ include "lab-zitadel.fullname" . }}-login-config
+        - name: login-service-key
+          secret:
+            secretName: {{ include "lab-zitadel.loginKeySecretName" . }}
+            items:
+              - key: tls.crt
+                path: tls.crt
+        {{- end }}
       containers:
-        - name: {{ .Values.app.name }}
-          image: "{{ .Values.app.image }}:{{ .Values.app.tag }}"
-          imagePullPolicy: {{ .Values.app.pullPolicy }}
-          {{- with .Values.app.securityContext }}
+        - name: zitadel
+          image: "{{ .Values.zitadel.image.repository }}:{{ .Values.zitadel.image.tag }}"
+          imagePullPolicy: {{ .Values.zitadel.image.pullPolicy }}
+          args:
+            - start-from-init
+            - --masterkeyFromEnv
+            - --tlsMode
+            - {{ .Values.zitadel.tlsMode | quote }}
+            {{- if .Values.login.enabled }}
+            - --config
+            - /etc/zitadel/config/system-api-users.yaml
+            {{- end }}
+          {{- with .Values.zitadel.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           ports:
-            - containerPort: {{ .Values.app.port }}
-              name: {{ .Values.app.name }}
-          env:
-            - name: ENV
-              value: {{ .Values.app.env | quote }}
-          {{- with .Values.app.resources }}
+            - name: http
+              containerPort: {{ .Values.zitadel.port }}
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "lab-zitadel.fullname" . }}-config
+            - secretRef:
+                name: {{ include "lab-zitadel.secretName" . }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            {{- if .Values.login.enabled }}
+            - name: login-config
+              mountPath: /etc/zitadel/config
+              readOnly: true
+            - name: login-service-key
+              mountPath: /etc/zitadel/login-service-key
+              readOnly: true
+            {{- end }}
+          startupProbe:
+            httpGet:
+              path: /debug/healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 60
+          livenessProbe:
+            httpGet:
+              path: /debug/healthz
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /debug/ready
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          {{- with .Values.zitadel.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
