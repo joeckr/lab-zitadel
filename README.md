@@ -40,7 +40,7 @@ PostgreSQL Service (zitadel-pg:5432) ──▶ Rootless PostgreSQL Pod (Longhorn
   - Runs `ghcr.io/zitadel/zitadel:v4.20.4` with `start-from-init --masterkeyFromEnv --tlsMode external`, health/readiness/startup probes (`/debug/healthz`, `/debug/ready`), and automatic schema initialization.
   - Bundles and auto-bootstraps the standalone **Login V2** UI (`ghcr.io/zitadel/zitadel-login:v4.20.4`) using an auto-generated RSA keypair (`kubernetes.io/tls` Secret) registered as a `SystemAPIUser`, with `/ui/v2/login` routed automatically on the `HTTPRoute`.
 - **Rootless PostgreSQL Subchart ([`joeckr/oci-postgres`](https://github.com/joeckr/oci-postgres))**:
-  - Declared as an OCI Helm dependency (`oci://ghcr.io/joeckr/charts`, `postgres` `0.2.3`) using `ghcr.io/joeckr/postgres:18`.
+  - Declared as an OCI Helm dependency (`oci://ghcr.io/joeckr/charts`, `postgres` `0.3.0`) using `ghcr.io/joeckr/postgres:0.3.0`.
   - Runs rootless under Restricted PSS backed by a Longhorn `ReadWriteOnce` PVC (`5Gi`).
   - Can be disabled (`postgres.enabled=false`) in favor of an external PostgreSQL database (`externalPostgres.*`).
 - **Traefik Kubernetes Gateway API (`HTTPRoute` + `h2c`)**:

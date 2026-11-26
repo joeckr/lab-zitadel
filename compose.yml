@@ -1,7 +1,7 @@
 services:
   postgres:
     container_name: zitadel-postgres
-    image: ghcr.io/joeckr/postgres:18
+    image: ghcr.io/joeckr/postgres:0.3.0
     restart: unless-stopped
     environment:
       POSTGRES_DB: zitadel
