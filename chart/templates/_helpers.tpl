@@ -85,7 +85,7 @@ PostgreSQL connection helpers
 */}}
 {{- define "lab-zitadel.postgresHost" -}}
 {{- if .Values.postgres.enabled }}
-{{- .Values.postgres.postgres.name }}
+{{- .Values.postgres.app.name }}
 {{- else }}
 {{- .Values.externalPostgres.host }}
 {{- end }}
@@ -93,7 +93,7 @@ PostgreSQL connection helpers
 
 {{- define "lab-zitadel.postgresPort" -}}
 {{- if .Values.postgres.enabled }}
-{{- .Values.postgres.postgres.port }}
+{{- .Values.postgres.app.port }}
 {{- else }}
 {{- .Values.externalPostgres.port }}
 {{- end }}
@@ -101,7 +101,7 @@ PostgreSQL connection helpers
 
 {{- define "lab-zitadel.postgresDb" -}}
 {{- if .Values.postgres.enabled }}
-{{- .Values.postgres.postgres.db }}
+{{- .Values.postgres.app.db }}
 {{- else }}
 {{- .Values.externalPostgres.db }}
 {{- end }}
@@ -109,7 +109,7 @@ PostgreSQL connection helpers
 
 {{- define "lab-zitadel.postgresUser" -}}
 {{- if .Values.postgres.enabled }}
-{{- .Values.postgres.postgres.user }}
+{{- .Values.postgres.app.user }}
 {{- else }}
 {{- .Values.externalPostgres.user }}
 {{- end }}
@@ -117,7 +117,7 @@ PostgreSQL connection helpers
 
 {{- define "lab-zitadel.postgresPassword" -}}
 {{- if .Values.postgres.enabled }}
-{{- .Values.postgres.postgres.password }}
+{{- .Values.postgres.app.password }}
 {{- else }}
 {{- .Values.externalPostgres.password }}
 {{- end }}
@@ -125,7 +125,7 @@ PostgreSQL connection helpers
 
 {{- define "lab-zitadel.postgresAdminUser" -}}
 {{- if .Values.postgres.enabled }}
-{{- .Values.postgres.postgres.user }}
+{{- .Values.postgres.app.user }}
 {{- else }}
 {{- default .Values.externalPostgres.user .Values.externalPostgres.adminUser }}
 {{- end }}
@@ -133,7 +133,7 @@ PostgreSQL connection helpers
 
 {{- define "lab-zitadel.postgresAdminPassword" -}}
 {{- if .Values.postgres.enabled }}
-{{- .Values.postgres.postgres.password }}
+{{- .Values.postgres.app.password }}
 {{- else }}
 {{- default .Values.externalPostgres.password .Values.externalPostgres.adminPassword }}
 {{- end }}
