@@ -17,11 +17,14 @@ spec:
         {{- include "lab-zitadel.selectorLabels" . | nindent 8 }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
-        {{- if not .Values.zitadel.existingSecret }}
+        {{- if and .Values.zitadel.secretCreate (not .Values.zitadel.existingSecret) }}
         checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
         {{- end }}
         {{- if .Values.login.enabled }}
         checksum/login-config: {{ include (print $.Template.BasePath "/login-configmap.yaml") . | sha256sum }}
+        {{- end }}
+        {{- with .Values.zitadel.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
       automountServiceAccountToken: false

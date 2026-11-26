@@ -117,7 +117,7 @@ PostgreSQL connection helpers
 
 {{- define "lab-zitadel.postgresPassword" -}}
 {{- if .Values.postgres.enabled }}
-{{- .Values.postgres.app.password }}
+{{- .Values.postgres.secret.data.POSTGRES_PASSWORD }}
 {{- else }}
 {{- .Values.externalPostgres.password }}
 {{- end }}
@@ -133,7 +133,7 @@ PostgreSQL connection helpers
 
 {{- define "lab-zitadel.postgresAdminPassword" -}}
 {{- if .Values.postgres.enabled }}
-{{- .Values.postgres.app.password }}
+{{- .Values.postgres.secret.data.POSTGRES_PASSWORD }}
 {{- else }}
 {{- default .Values.externalPostgres.password .Values.externalPostgres.adminPassword }}
 {{- end }}

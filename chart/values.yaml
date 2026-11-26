@@ -20,9 +20,11 @@ zitadel:
   tlsMode: "external"
 
   # 32-character masterkey used by ZITADEL to encrypt sensitive database fields.
-  # Provide existingSecret instead to manage credentials externally (e.g., SealedSecrets/ExternalSecrets).
+  # Set secretCreate: false or provide existingSecret to manage credentials externally (e.g., External Secrets Operator).
+  secretCreate: true
   masterkey: "changeme-32-character-masterkey!"  # betterleaks:allow
   existingSecret: ""
+  podAnnotations: {}
 
   # Optional initial instance bootstrap settings (applied only on first initialization)
   firstInstance:
@@ -149,7 +151,7 @@ httpRoute:
   pathType: PathPrefix
   filters: []
 
-# Embedded rootless PostgreSQL subchart (https://github.com/joeckr/oci-postgres, v0.3.0)
+# Embedded rootless PostgreSQL subchart (https://github.com/joeckr/oci-postgres, v0.4.0)
 postgres:
   enabled: true
   app:
@@ -163,7 +165,6 @@ postgres:
     port: 5432
     db: zitadel
     user: zitadel
-    password: "changeme"  # betterleaks:allow
     storageAccessMode: ReadWriteOnce
     storageSize: 5Gi
     storageClass: "longhorn"
@@ -186,6 +187,13 @@ postgres:
           - ALL
   initSchema:
     enabled: false
+  secret:
+    create: true
+    existingSecret: ""
+    keys:
+      password: "POSTGRES_PASSWORD"  # betterleaks:allow
+    data:
+      POSTGRES_PASSWORD: "changeme"  # betterleaks:allow
 
 # External PostgreSQL settings (used only when postgres.enabled is false)
 externalPostgres:
